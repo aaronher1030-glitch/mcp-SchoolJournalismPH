@@ -14,9 +14,9 @@ Build a portable Agent Skills pack that helps technically capable models perform
 - Synthetic examples, installation instructions, research notes, deterministic validation, and CI.
 - A local Git repository connected to `https://github.com/aaronher1030-glitch/mcp-SchoolJournalismPH.git`, with a safe push helper.
 
-Out of scope:
+Out of scope (revised 2026-11-26: the repository owner asked for the MCP server, which is now the centre of the package — see `docs/MCP.md` and `mcp_server/`):
 
-- An MCP server, hosted service, API keys, or runtime backend.
+- ~~An MCP server~~. Included now. There is still no hosted service, API key, network dependency, or runtime backend.
 - AI-detector optimization or authorship certification.
 - Publishing identifiable student articles, original interview material, or article-specific verification records without explicit consent.
 

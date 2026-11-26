@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "school-journalism-ph": {
+      "command": "python",
+      "args": ["-m", "mcp_server"],
+      "env": {
+        "PYTHONPATH": "."
+      }
+    }
+  }
+}
