@@ -212,7 +212,9 @@ TOOLS: tuple[dict[str, Any], ...] = (
             "Deterministic surface diagnostics for a draft: machine-writing tells, stock phrases, "
             "invented interiority and inferred reactions, unattributed claims, hedging, inflated "
             "wording, rhythm (sentence-length variance, run-ons, repeated openers), adverb, passive "
-            "and nominalization density. Optionally compares rhythm against a voice sample. Returns "
+            "and nominalization density. English and Filipino/Tagalog pattern lists are applied in "
+            "the same pass, so a mixed draft needs no language setting. Optionally compares rhythm "
+            "against a voice sample. Returns "
             "findings with line numbers and a specific fix technique — never rewritten text, because "
             "the model must supply wording grounded in the reporting."
         ),
@@ -298,7 +300,8 @@ TOOLS: tuple[dict[str, Any], ...] = (
         "description": (
             "Diff an untouched draft against the edited draft for lost numbers, names, and verbatim "
             "quotations, added facts that exist only in the edit, and a drop in qualifier density "
-            "(may, could, alleged, according to, at least). Use it to complete the meaning check "
+            "(may, could, alleged, according to, at least, maaari, di-umano, raw, ayon sa). Use it "
+            "to complete the meaning check "
             "instead of reading from memory."
         ),
         "inputSchema": {

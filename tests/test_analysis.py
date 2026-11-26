@@ -146,5 +146,51 @@ class MeaningDiffTests(unittest.TestCase):
         self.assertLess(result["qualifier_density"]["delta"], 0)
 
 
+class FilipinoProseTests(unittest.TestCase):
+    """The pattern lists must fire on Filipino/Tagalog drafts, not only English."""
+
+    def test_flags_filipino_formulaic_opener_and_slop(self) -> None:
+        text = (
+            "Sa kasalukuyang panahon, ang proyekto ay nagsisilbing susi sa tagumpay. "
+            "Mahalagang tandaan na hindi lamang ito proyekto kundi pati na rin pangako."
+        )
+        rules = {finding["rule"] for finding in analyze_prose(text)["findings"]}
+        self.assertIn("ai-opener", rules)
+        self.assertIn("slop-phrase", rules)
+
+    def test_flags_filipino_invented_interiority_and_scene(self) -> None:
+        text = (
+            "Nakaramdam siya ng kaba habang naghihintay. "
+            "Kumalabog ang kanyang puso at nanginginig ang kanyang boses. "
+            "Biglang natahimik ang buong bulwagan."
+        )
+        rules = {finding["rule"] for finding in analyze_prose(text)["findings"]}
+        self.assertIn("invented-interiority", rules)
+        self.assertIn("invented-reaction", rules)
+        self.assertIn("unsupported-scene", rules)
+
+    def test_flags_filipino_unattributed_and_hedged_claims(self) -> None:
+        text = (
+            "Ayon sa mga eksperto, malaki ang naitulong ng programa. "
+            "Sinasabi ng mga guro na maraming estudyante ang natulungan. "
+            "Maaaring posibleng tumaas pa ito sa susunod na taon."
+        )
+        rules = {finding["rule"] for finding in analyze_prose(text)["findings"]}
+        self.assertIn("unsourced-attribution", rules)
+        self.assertIn("hedge-stack", rules)
+        self.assertIn("vague-quantifier", rules)
+
+    def test_lost_filipino_qualifier_is_reported(self) -> None:
+        with_qualifier = "Maaaring maapektuhan ang mga mag-aaral na naghihintay sa gate tuwing hapon."
+        without = "Maapektuhan ang mga mag-aaral na naghihintay sa gate tuwing hapon."
+        result = diff_meaning(with_qualifier, without)
+        self.assertLess(result["qualifier_density"]["delta"], 0)
+        self.assertEqual(result["qualifier_density"]["edited"], 0.0)
+
+    def test_filipino_stopwords_are_not_reported_as_names(self) -> None:
+        result = check_facts("Ayon Sa Mga Eksperto, tumaas ang presyo ng bigas.", "Tumaas ang presyo ng bigas.")
+        self.assertEqual(result["names_not_in_source"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

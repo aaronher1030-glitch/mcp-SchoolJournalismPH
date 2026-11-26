@@ -49,7 +49,7 @@ Use the MCP tools instead of guessing:
 1. `journalism_brief` — this page.
 2. `get_skill` — the full workflow for the task.
 3. `get_reference` — guardrails, craft signals, or verification output, when the skill points there.
-4. `analyze_prose` — machine-writing tells, invented interiority, unattributed claims, rhythm, density.
+4. `analyze_prose` — machine-writing tells (English and Filipino/Tagalog patterns), invented interiority, unattributed claims, rhythm, density.
 5. `check_quotes` — exact, altered (with diff), or not found in the supplied material.
 6. `check_facts` — numbers and names with no locator in the notes.
 7. `diff_meaning` — lost numbers, names, quotations, and qualifiers between original and edit.

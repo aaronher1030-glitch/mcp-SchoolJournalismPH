@@ -54,6 +54,8 @@ Returns:
 
 - `stats` — words, sentences, paragraphs, average and standard deviation of sentence length, longest sentence, sentences over 40 words, adverb/passive/nominalization/em-dash density per 1,000 words.
 - `findings` — each with `rule`, `severity`, `line`, `match`, `excerpt`, `note`, and a `fix` technique. Categories: formulaic openers, slop phrases, pseudo-profundity, invented interiority, inferred physical reactions, generic scene beats, unattributed claims, mechanical transitions, inflated wording, stacked hedging, empty intensifiers, editorializing, loaded adjectives, news clichés, vague quantities, plus rhythm findings (monotony, run-ons, dense paragraphs, repeated openers, adverb/passive/nominalization density, em-dash overuse).
+
+Every rule carries English and Filipino/Tagalog alternatives and both are scanned in one pass, so `sa kasalukuyang panahon` is caught by the same `ai-opener` rule as `in today's fast-paced world`. A mixed draft needs no setting. Examples: `ai-opener` (`sa kasalukuyang panahon`), `slop-phrase` (`nagsisilbing susi sa tagumpay`, `mahalagang tandaan`, `hindi lamang … kundi pati na rin`), `invented-interiority` (`nakaramdam siya ng kaba`, `kumalabog ang kanyang puso`), `invented-reaction` (`nanginginig ang kanyang boses`, `bumuntong-hininga`), `unsupported-scene` (`biglang natahimik ang buong bulwagan`, `tumigil ang oras`), `unsourced-attribution` (`ayon sa mga eksperto`, `sinasabi ng mga guro`), `hedge-stack` (`maaaring posibleng`, `sa paanuman`), `intensifier` (`sobrang`, `napaka-`), `editorializing` (`sa kasamaang palad`, `walang duda`), `loaded-adjective` (`nakakadurog-puso`, `kahindik-hindik`), `news-cliche` (`sa gitna ng`, `makasaysayang pangyayari`), and `vague-quantifier` (`marami`, `ilang`).
 - `signal` — `mechanical`, `mixed`, or `clear`, with the reasons. Diagnostic only.
 - `voice_comparison` — when a sample is supplied, measured rhythm and formality deltas, not an imitation.
 
@@ -71,7 +73,7 @@ Extracts double- and single-quoted spans, normalizes whitespace and quote glyphs
 
 ### `diff_meaning`
 
-`original`, `edited`. Reports lost and added numbers and names, quotations that no longer appear verbatim, qualifier density per 1,000 words (`may`, `could`, `alleged`, `according to`, `at least`, …), and a `risk` level.
+`original`, `edited`. Reports lost and added numbers and names, quotations that no longer appear verbatim, qualifier density per 1,000 words (`may`, `could`, `alleged`, `according to`, `at least`, `maaari`, `di-umano`, `raw`, `ayon sa`, `tinatayang`, …), and a `risk` level. Qualifiers are matched on word boundaries, so a short Filipino qualifier is not counted inside another word.
 
 ### `validate_ledger`
 
@@ -188,6 +190,16 @@ The server is built for a short context budget:
 - Tool responses return counts in full but cap repeated examples, so a draft with 40 slop phrases does not produce 40 near-identical entries.
 - `analyze_prose` returns fix *techniques*, not replacement sentences. That keeps the response small and prevents a pattern library from writing the story.
 - The gate returns the decision block already filled, so the model does not need a second pass to format it.
+
+## Language coverage
+
+- The `SLOP_RULES` patterns are bilingual: English and Filipino/Tagalog alternatives live in the same rule, so one scan covers a draft that switches language mid-paragraph, as campus-press copy often does.
+- `_QUALIFIERS` (used by `diff_meaning`) includes Filipino hedges such as `di-umano`, `raw`, `daw`, `maaari`, `tila`, and `halos`, matched on word boundaries.
+- `_NAME_STOPWORDS` includes Filipino sentence starters, function words, days, and months, so `check_facts` does not report a capitalized `Ayon` or `Lunes` as a name missing from the notes.
+- The rhythm and morphology statistics are English-shaped: `-ly` adverbs, auxiliary passives (`was …ed`), and English nominalizing suffixes. On a Filipino draft, `adverbs_per_1000` and `passive_per_1000` read near zero because the markers are different (reduplication, `nang`, `na-`/`-in` focus), not because the prose is clean. Nominalizations do count the Filipino suffixes `-asyon`, `-idad`, `-mento`, `-ismo`.
+- Nothing here detects code-switching as a problem or scores language quality. There is no language setting to get wrong.
+
+Do not read a low Filipino morphology count as a clean scan. The findings, not the density numbers, are what you act on.
 
 ## Limits
 

@@ -34,12 +34,14 @@ It speaks JSON-RPC 2.0 over stdio and uses only the Python standard library — 
 | `journalism_brief` | Which skill fits, the workflow spine, the non-negotiables, the output contract. |
 | `get_skill` | The full workflow for `feature-writing` or `journalism-humanizer`. |
 | `get_reference` | Guardrails, craft signals, or verification output. |
-| `analyze_prose` | Machine-writing tells, invented interiority, unattributed claims, hedging, rhythm, adverb/passive/nominalization density — with line numbers and a fix technique. |
+| `analyze_prose` | Machine-writing tells in English and Filipino/Tagalog, invented interiority, unattributed claims, hedging, rhythm, adverb/passive/nominalization density — with line numbers and a fix technique. |
 | `check_quotes` | Every direct quotation: exact, altered (with word diff and closest source span), or absent from the supplied material. |
 | `check_facts` | Numbers and candidate names with no locator in the notes. |
 | `diff_meaning` | Lost numbers, names, quotations, and qualifier density between original and edit. |
 | `validate_ledger` | Ledger fields, the six statuses, duplicate IDs, missing actions. |
 | `publication_gate` | `NOT READY` or `READY FOR HUMAN EDITOR REVIEW`, with blocking reasons and a filled decision block. |
+
+The pattern lists are bilingual. English and Filipino/Tagalog rules are applied in the same pass, because a Philippine campus-press draft is often mixed: an English opening, quoted Tagalog, a Filipino transition. The rhythm and morphology statistics stay English-shaped (-ly adverbs, auxiliary passives, English nominalizing suffixes), so on a Filipino draft read those numbers as rough signals and trust the findings instead.
 
 **Prompts:** `feature-draft`, `line-edit`, `contest-review`.
 

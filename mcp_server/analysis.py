@@ -6,6 +6,13 @@ server has not seen, or whether a story is good. They exist so a model can test
 its own draft cheaply and repeatedly instead of guessing, and so a human editor
 can see exactly what was flagged.
 
+A draft may be in English or Filipino/Tagalog. The pattern lists carry both, so
+a single scan catches "in today's fast-paced world" and "sa kasalukuyang
+panahon" alike, and a mixed draft needs no language switch. The rhythm and
+morphology statistics (adverbs in -ly, auxiliary passives, English nominalizing
+suffixes) are shaped by English, so on a Filipino draft read them as rough
+signals rather than as counts.
+
 Two rules follow from that and are repeated in every tool response:
 
 1. A finding is a prompt to look, not a verdict. Zero findings is not a pass.
@@ -35,7 +42,9 @@ _PASSIVE_RE = re.compile(
 )
 _ADVERB_RE = re.compile(r"\b\w{4,}ly\b", re.IGNORECASE)
 _NOMINAL_RE = re.compile(
-    r"\b\w{5,}(?:tion|sion|ment|ance|ence|ity|ness|ization|isation)\b", re.IGNORECASE
+    r"\b\w{5,}(?:tion|sion|ment|ance|ence|ity|ness|ization|isation"
+    r"|asyon|idad|mento|ismo)\b",
+    re.IGNORECASE,
 )
 _CONTRACTION_RE = re.compile(
     r"\b(?:can't|won't|don't|doesn't|didn't|isn't|aren't|wasn't|weren't|it's"
@@ -65,12 +74,38 @@ _NAME_STOPWORDS = {
     "sunday", "january", "february", "march", "april", "may", "june", "july",
     "august", "september", "october", "november", "december", "section",
     "chapter", "part", "story", "photo", "editor",
+    # Filipino/Tagalog sentence starters, function words, days, and months. They
+    # are capitalized for position, not because they name anyone; without these
+    # entries check_facts reports each one as a name missing from the notes.
+    "ang", "si", "sina", "sa", "mga", "ng", "siya", "sila", "ito", "iyan", "iyon", "at",
+    "o", "ngunit", "pero", "subalit", "datapwat", "samantala", "gayunpaman",
+    "gayon", "dahil", "sapagkat", "kaya", "kung", "para", "mula", "hanggang",
+    "matapos", "bago", "habang", "noong", "ngayon", "bukas", "kahapon",
+    "bawat", "lahat", "ilan", "isang", "may", "mayroon", "mayroong", "bilang",
+    "ayon", "bukod", "dagdag", "higit", "sabi", "sinabi", "tila", "dito",
+    "doon", "maging", "gaya", "tulad", "tungkol", "ukol",
+    "lunes", "martes", "miyerkules", "huwebes", "biyernes", "sabado", "linggo",
+    "enero", "pebrero", "marso", "abril", "mayo", "hunyo", "hulyo", "agosto",
+    "setyembre", "oktubre", "nobyembre", "disyembre",
 }
 
 _QUALIFIERS = (
     "may", "might", "could", "can", "alleged", "allegedly", "according to",
     "if", "up to", "about", "more than", "less than", "at least", "nearly",
     "reportedly", "said", "says", "denied", "estimated", "roughly",
+    # Filipino/Tagalog qualifiers. Hedges are where an edit most often raises
+    # certainty: dropping "di-umano", "raw", or "maaari" turns a report into a
+    # fact, so diff_meaning must count them too.
+    "maaari", "maaaring", "posible", "posibleng", "ayon kay", "ayon sa", "di-umano",
+    "umano", "raw", "daw", "sinabi", "sinasabi", "pinabulaanan", "tinatayang",
+    "halos", "mahigit", "hindi bababa sa", "kung", "tila", "marahil",
+)
+
+# Word-bounded so short Filipino qualifiers ("raw", "kung", "daw") are not
+# counted inside unrelated words.
+_QUALIFIER_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(q) for q in sorted(_QUALIFIERS, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE,
 )
 
 
@@ -96,7 +131,12 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
     _rule(
         "ai-opener",
         r"\bin today'?s (?:fast-?paced|modern|digital|hyper-?connected|competitive|world|society|age)\b"
-        r"|\bas we (?:all )?know\b|\bin a world where\b|\bsince the dawn of time\b",
+        r"|\bas we (?:all )?know\b|\bin a world where\b|\bsince the dawn of time\b"
+        r"|\bsa kasalukuyang? (?:panahon|henerasyon)\b"
+        r"|\bsa (?:makabago|moderno)ng (?:panahon|mundo|henerasyon)\b"
+        r"|\bsa panahon ngayon\b|\bsa mundong ito\b|\bsa ating lipunan\b"
+        r"|\btulad ng alam nating lahat\b|\bhindi na bago sa (?:atin|amin|kanila)\b"
+        r"|\bsa gitna ng mabilis na pagbabago\b|\bsa bawat isa sa atin\b",
         "Formulaic opener",
         "high",
         "Announces the topic instead of reporting it. This is the single most reliable machine-writing tell.",
@@ -120,7 +160,17 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
         r"|\bembark(?:s|ing|ed)? on a journey\b"
         r"|\bdawn of a new era\b"
         r"|\bthe (?:realm|landscape) of\b"
-        r"|\bin conclusion\b|\bat the end of the day\b",
+        r"|\bin conclusion\b|\bat the end of the day\b"
+        r"|\bnagsisilbing (?:susi|daan|tulay|testamento|sagisag|paalala)\b"
+        r"|\bgumaganap ng (?:mahalaga|kritikal|pangunahin)ng papel\b"
+        r"|\bmahalagang (?:tandaan|malaman|mapagtanto)\b"
+        r"|\bsusi (?:sa|ng) tagumpay\b"
+        r"|\bhindi lamang\b[^.!?]{0,90}\bkundi (?:pati )?rin\b"
+        r"|\bsa (?:larangan|aspeto) ng\b"
+        r"|\bnagbibigay-diin sa kahalagahan\b|\bnagpapakita ng (?:kahalagahan|potensyal)\b"
+        r"|\bpatuloy na (?:umuunlad|lumalago|umusbong)\b"
+        r"|\bbagong (?:yugto|panahon|kabanata)\b|\bsa kabila ng mga hamon\b"
+        r"|\bliwanag ng pag-asa\b|\bsa dakong huli\b",
         "Slop phrase",
         "high",
         "Stock phrasing that carries no reported information and reads as machine-generated.",
@@ -130,7 +180,10 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
         "pseudo-profundity",
         r"\bwhat happened next\b|\bthe rest is history\b|\bonly time will tell\b"
         r"|\bone thing is certain\b|\ba (?:story|tale) of\b|\blittle did\b"
-        r"|\bwould change (?:everything|their lives) forever\b",
+        r"|\bwould change (?:everything|their lives) forever\b"
+        r"|\bang natitira(?: lamang)? ay kasaysayan\b"
+        r"|\bpanahon lamang ang (?:makapagsasabi|magsasabi)\b|\bisang bagay ang tiyak\b"
+        r"|\bbabaguhin (?:nito )?ang (?:lahat|kanyang buhay|kanilang buhay)(?: magpakailanman)?\b",
         "Pseudo-profound filler",
         "high",
         "Signals a manufactured turn the reporting may not support.",
@@ -143,7 +196,14 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
         r"|\b(?:his|her|their) heart (?:sank|raced|pounded|ached)\b"
         r"|\bthought to (?:himself|herself|themselves)\b"
         r"|\bseemed to (?:know|understand|sense|realize)\b"
-        r"|\bwondered aloud\b",
+        r"|\bwondered aloud\b"
+        r"|\bnakaramdam (?:siya |sila )?ng (?:kaba|takot|lungkot|galit|pag-asa|hiya)\b"
+        r"|\bnaramdaman (?:niya|nila) ang\b"
+        r"|\bnaisip (?:niya|nila) (?:sa kanyang sarili|sa kanilang sarili)\b"
+        r"|\bkumalabog ang (?:kanyang |kanilang )?(?:puso|dibdib)\b|\bpumintig ang (?:kanyang )?puso\b"
+        r"|\bnapuno ng (?:kaba|takot|pag-asa|lungkot) ang (?:kanyang )?(?:dibdib|puso)\b"
+        r"|\btumulo ang (?:kanyang )?luha\b|\bhindi (?:niya|nila) mapigilan ang\b"
+        r"|\btila (?:alam|batid|ramdam) (?:na )?(?:niya|nila)\b|\bnag-isip (?:siya )?nang malalim\b",
         "Invented interiority",
         "high",
         "A reporter cannot observe feelings or thoughts. This only belongs if it is a direct quotation or documented in the notes.",
@@ -156,7 +216,12 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
         r"|\bnodded (?:slowly|knowingly|thoughtfully)\b"
         r"|\bvoice (?:trembling|cracking|breaking|quivering)\b"
         r"|\blet out a (?:sigh|breath|laugh|gasp)\b"
-        r"|\bshifted (?:uncomfortably|nervously)\b|\bfidgeted\b",
+        r"|\bshifted (?:uncomfortably|nervously)\b|\bfidgeted\b"
+        r"|\bkumislap ang (?:kanyang )?mga mata\b|\blumiwanag ang (?:kanyang )?mukha\b"
+        r"|\bngumiti (?:siya )?nang (?:mapait|malungkot|malambing|mahina)\b"
+        r"|\btumango (?:siya )?nang (?:dahan-dahan|mabagal|malumanay)\b"
+        r"|\bnanginginig ang (?:kanyang )?boses\b|\bpumiyok ang (?:kanyang )?boses\b"
+        r"|\bbumuntong-hininga\b|\bnapailing (?:siya)?\b",
         "Inferred physical reaction",
         "high",
         "Micro-observations are usually reconstructed from memory hours later. Verify against notes before keeping.",
@@ -166,7 +231,12 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
         "unsupported-scene",
         r"\bthe (?:crowd|room|hall|cafeteria|classroom|audience) (?:erupted|fell silent|went silent|gasped)\b"
         r"|\ba hush fell\b|\bthe air was thick\b|\btime seemed to (?:stop|slow)\b"
-        r"|\byou could (?:hear|feel) (?:a pin drop|the tension)\b",
+        r"|\byou could (?:hear|feel) (?:a pin drop|the tension)\b"
+        r"|\b(?:biglang )?natahimik ang (?:lahat|buong bulwagan|bulwagan|silid|klase|madla)\b"
+        r"|\bnaghiyawan ang (?:mga tao|madla|mga estudyante|karamihan)\b"
+        r"|\bmakapal ang (?:hanging|hangin)\b|\bnamayani ang (?:katahimikan|tensyon)\b"
+        r"|\b(?:para bang |tila )?tumigil ang oras\b"
+        r"|\bdinig mo (?:ang pagbagsak ng karayom|ang tensyon)\b|\bramdam mo ang tensyon\b",
         "Generic scene beat",
         "high",
         "Scene shorthand that implies observation the draft has not demonstrated.",
@@ -177,7 +247,12 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
         r"\b(?:experts|critics|analysts|officials|sources|observers|many|some|people|students|teachers)"
         r"\s+(?:say|said|says|believe|believes|claim|claims|argue|argues|fear|fears|worry|worries|agree|agrees)\b"
         r"|\bit is (?:believed|said|widely known)\b|\bstudies (?:show|suggest|say)\b"
-        r"|\bresearch (?:shows|suggests|says)\b",
+        r"|\bresearch (?:shows|suggests|says)\b"
+        r"|\bayon sa (?:mga )?(?:eksperto|opisyal|analista|tagapagmasid|guro|estudyante|magulang|pinuno)\b"
+        r"|\b(?:sinabi|sinasabi|sabi) ng mga (?:eksperto|opisyal|analista|guro|estudyante|tao)\b"
+        r"|\b(?:marami|ilan|karamihan) ang (?:nagsasabi|naniniwala|nag-aalala|umaasa)\b"
+        r"|\bpinaniniwalaan ng (?:marami|karamihan|mga tao)\b"
+        r"|\bbatay sa (?:mga )?pag-aaral\b|\bipinapakita ng (?:mga )?pananaliksik\b",
         "Unattributed claim",
         "high",
         "No named person or document. An editor cannot verify it, and the reader cannot weigh it.",
@@ -185,7 +260,8 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
     ),
     _rule(
         "mechanical-transition",
-        r"(?:^|[.!?]\s+)(?:furthermore|moreover|additionally|in addition|thus|hence|therefore)\b",
+        r"(?:^|[.!?]\s+)(?:furthermore|moreover|additionally|in addition|thus|hence|therefore"
+        r"|higit pa rito|bukod dito|dagdag pa(?: rito)?|samakatuwid|sa madaling salita)\b",
         "Mechanical transition",
         "medium",
         "Paragraph glue that does not explain the relationship between ideas.",
@@ -197,7 +273,9 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
         r"|\bcommenc(?:e|es|ed|ing)\b|\bendeavor(?:s|ed|ing)?\b|\bascertain(?:s|ed|ing)?\b"
         r"|\bprior to\b|\bsubsequent to\b|\bdue to the fact that\b|\bin order to\b"
         r"|\bat this point in time\b|\bin the event that\b|\ba large number of\b"
-        r"|\bthe majority of\b",
+        r"|\bthe majority of\b"
+        r"|\bsa kadahilanang\b|\bdahil sa katotohanan na\b|\bupang maisakatuparan\b"
+        r"|\bmalaki(?:ng)? bilang ng\b",
         "Inflated wording",
         "medium",
         "Longer word, same meaning. Plain verbs read faster and sound like a person.",
@@ -207,7 +285,10 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
         "hedge-stack",
         r"\b(?:may|might|could) (?:possibly|potentially|conceivably)\b"
         r"|\bseems? to (?:suggest|indicate|imply)\b|\bappears? to (?:suggest|indicate)\b"
-        r"|\bsomewhat\b|\bto some extent\b|\bin some ways\b",
+        r"|\bsomewhat\b|\bto some extent\b|\bin some ways\b"
+        r"|\bmaaaring (?:posible|posibleng)\b|\bposibleng maaari\b"
+        r"|\btila (?:nagpapahiwatig|nagpapakita) na\b"
+        r"|\bsa (?:ilang|isang tiyak na) paraan\b|\bsa paanuman\b",
         "Stacked hedging",
         "high",
         "Double qualifications blur what is actually known.",
@@ -215,7 +296,8 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
     ),
     _rule(
         "intensifier",
-        r"\b(?:very|really|quite|extremely|incredibly|truly|literally|basically|actually|definitely|absolutely)\b",
+        r"\b(?:very|really|quite|extremely|incredibly|truly|literally|basically|actually|definitely|absolutely)\b"
+        r"|\b(?:sobrang|talagang|talaga|lubos|lubhang|tunay na|ganap na)\b|\bnapaka\w+\b",
         "Empty intensifier",
         "medium",
         "The intensifier does the work the detail should do.",
@@ -223,7 +305,9 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
     ),
     _rule(
         "editorializing",
-        r"\b(?:clearly|obviously|of course|needless to say|sadly|thankfully|unfortunately)\b",
+        r"\b(?:clearly|obviously|of course|needless to say|sadly|thankfully|unfortunately)\b"
+        r"|\bsa (?:kasamaang|kabutihang) palad\b|\bsiyempre\b|\bwalang duda\b"
+        r"|\bmalinaw na malinaw\b|\bhindi mapag-aalinlanganan\b|\bkapansin-pansin\b",
         "Editorializing",
         "medium",
         "Tells the reader how to feel instead of giving them the evidence.",
@@ -231,7 +315,9 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
     ),
     _rule(
         "loaded-adjective",
-        r"\b(?:shocking|heartbreaking|heartwarming|devastating|tragic|unbelievable|horrific|dire|grim)\b",
+        r"\b(?:shocking|heartbreaking|heartwarming|devastating|tragic|unbelievable|horrific|dire|grim)\b"
+        r"|\bnakakagulat\b|\bnakakalungkot\b|\bnakakadurog-puso\b"
+        r"|\bkahindik-hindik\b|\bkagila-gilalas\b|\bkamangha-mangha\b",
         "Loaded adjective",
         "medium",
         "Evaluative language in the reporter's voice weakens credibility.",
@@ -241,7 +327,10 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
         "news-cliche",
         r"\bshed(?:s|ding)? light on\b|\bin the wake of\b|\bsent shockwaves\b"
         r"|\bbustling\b|\bnestled\b|\bboasts? (?:a|an|the)\b|\ba slew of\b"
-        r"|\bsparked (?:outrage|debate|concern)\b|\bamid (?:growing )?(?:concern|outcry)\b",
+        r"|\bsparked (?:outrage|debate|concern)\b|\bamid (?:growing )?(?:concern|outcry)\b"
+        r"|\bsa gitna ng\b|\bnagsilbing saksi\b|\bpinukaw ang atensyon\b"
+        r"|\bnagbabadya ng pagbabago\b|\bmakulay na (?:pagdiriwang|karanasan)\b"
+        r"|\bmakasaysayang (?:pangyayari|sandali)\b|\bhindi matatawaran\b",
         "News cliché",
         "medium",
         "Overused newsroom shorthand; readers skim past it.",
@@ -249,7 +338,8 @@ SLOP_RULES: tuple[dict[str, Any], ...] = (
     ),
     _rule(
         "vague-quantifier",
-        r"\b(?:a lot of|lots of|plenty of|a number of|several|numerous|various|many)\b",
+        r"\b(?:a lot of|lots of|plenty of|a number of|several|numerous|various|many)\b"
+        r"|\b(?:marami(?:ng)?|napakarami|ilang|sari-saring|iba't ibang|kakaunti)\b",
         "Vague quantity",
         "low",
         "A count exists or it does not; vague quantifiers hide which.",
@@ -371,8 +461,13 @@ def _rhythm_findings(text: str, stats: dict[str, Any], sentences: list[str]) -> 
             w = _words(s)
             if w:
                 openers[w[0].lower()] = openers.get(w[0].lower(), 0) + 1
+        neutral_openers = {
+            "the", "a", "an", "he", "she", "it", "they", "i", "we", "but", "and",
+            "ang", "si", "sina", "siya", "sila", "ito", "at", "ngunit", "pero",
+            "sa", "noong", "dahil", "kaya", "may", "para", "habang", "matapos",
+        }
         repeated = sorted(
-            ((k, v) for k, v in openers.items() if v >= 3 and k not in {"the", "a", "an", "he", "she", "it", "they", "i", "we", "but", "and"}),
+            ((k, v) for k, v in openers.items() if v >= 3 and k not in neutral_openers),
             key=lambda kv: -kv[1],
         )
         if repeated:
@@ -809,8 +904,7 @@ def diff_meaning(original: str, edited: str) -> dict[str, Any]:
 
     def qualifier_rate(text: str) -> float:
         wc = max(1, len(_words(text)))
-        lower = text.lower()
-        total = sum(lower.count(q) for q in _QUALIFIERS)
+        total = len(_QUALIFIER_RE.findall(text))
         return round(total * 1000.0 / wc, 1)
 
     orig_q = qualifier_rate(original)
